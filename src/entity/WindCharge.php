@@ -40,11 +40,9 @@ use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\entity\ProjectileHitEvent;
 use pocketmine\math\AxisAlignedBB;
-use pocketmine\math\Facing;
 use pocketmine\math\Vector3;
 use pocketmine\network\mcpe\protocol\PlaySoundPacket;
 use pocketmine\player\Player;
-use pocketmine\world\particle\HugeExplodeSeedParticle;
 use pocketmine\world\sound\FireExtinguishSound;
 use XeonCh\Mace\particle\WindParticle;
 
@@ -86,7 +84,11 @@ class WindCharge extends Throwable
             $this->getWorld()->addSound($this->location, new FireExtinguishSound());
         }
 
-        if ($this->isUnderwater() || $this->isUnderlava()) {
+        $world = $this->getWorld();
+        $block = $world->getBlock($this->location);
+        
+        if ($block->getTypeId() === BlockTypeIds::WATER || 
+            $block->getTypeId() === BlockTypeIds::LAVA) {
             $this->motion = $this->motion->multiply(0.65);
         }
 
@@ -138,7 +140,8 @@ class WindCharge extends Throwable
             }
             
             if ($entity instanceof Living) {
-                if ($entity->getId() !== $this->getOwningEntity()?->getId()) {
+                $owner = $this->getOwningEntity();
+                if ($owner === null || $entity->getId() !== $owner->getId()) {
                     $entity->attack(new EntityDamageEvent(
                         $entity, 
                         EntityDamageEvent::CAUSE_PROJECTILE, 
@@ -172,27 +175,31 @@ class WindCharge extends Throwable
     {
         $world = $this->getWorld();
         $pos = $block->getPosition();
+        
+        $owner = $this->getOwningEntity();
+        $player = $owner instanceof Player ? $owner : null;
 
         if ($block instanceof Door || $block instanceof Trapdoor || $block instanceof FenceGate) {
-            $block->onInteract($this->getOwningEntity() instanceof Player ? $this->getOwningEntity() : null, null);
+            $block->onInteract($player);
         }
 
         if ($block instanceof Button) {
-            $block->onInteract($this->getOwningEntity() instanceof Player ? $this->getOwningEntity() : null, null);
+            $block->onInteract($player);
         }
 
         if ($block->getTypeId() === BlockTypeIds::LEVER) {
-            $block->onInteract($this->getOwningEntity() instanceof Player ? $this->getOwningEntity() : null, null);
+            $block->onInteract($player);
         }
 
-        if ($block->getTypeId() === BlockTypeIds::CANDLE || $block->getTypeId() === BlockTypeIds::CANDLE_CAKE) {
+        if ($block->getTypeId() === BlockTypeIds::CANDLE || 
+            $block->getTypeId() === BlockTypeIds::CANDLE_CAKE) {
             if ($block->getLightLevel() > 0) {
                 $world->setBlock($pos, $block->setLit(false));
             }
         }
 
         if ($block->getTypeId() === BlockTypeIds::CAMPFIRE) {
-            if ($block->isLit()) {
+            if (method_exists($block, 'isLit') && $block->isLit()) {
                 $world->setBlock($pos, $block->setLit(false));
             }
         }
