@@ -27,7 +27,6 @@ declare(strict_types=1);
 namespace XeonCh\Mace;
 
 use pocketmine\block\Air;
-use pocketmine\entity\effect\VanillaEffects;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\Listener;
@@ -120,10 +119,6 @@ class EventListener implements Listener
 
         $playerName = $player->getName();
         
-        if ($player->getEffects()->has(VanillaEffects::SLOW_FALLING())) {
-            return;
-        }
-
         $wasInAir = !$player->isOnGround();
         $fallDistance = $this->playerFallDistance[$playerName] ?? 0;
 
