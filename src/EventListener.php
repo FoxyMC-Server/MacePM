@@ -28,6 +28,7 @@ namespace XeonCh\Mace;
 
 use pocketmine\block\Air;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
+use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerMoveEvent;
 use pocketmine\item\enchantment\StringToEnchantmentParser;
@@ -47,6 +48,7 @@ class EventListener implements Listener
     private const HEAVY_SMASH_THRESHOLD = 5.0;
 
     private array $playerFallDistance = [];
+    private array $maceHitInAir = [];
 
     public function onPlayerMove(PlayerMoveEvent $event): void
     {
@@ -66,6 +68,27 @@ class EventListener implements Listener
             if (isset($this->playerFallDistance[$player->getName()])) {
                 unset($this->playerFallDistance[$player->getName()]);
             }
+            if (isset($this->maceHitInAir[$player->getName()])) {
+                unset($this->maceHitInAir[$player->getName()]);
+            }
+        }
+    }
+
+    public function onEntityDamage(EntityDamageEvent $event): void
+    {
+        if ($event->getCause() !== EntityDamageEvent::CAUSE_FALL) {
+            return;
+        }
+
+        $entity = $event->getEntity();
+        if (!$entity instanceof Player) {
+            return;
+        }
+
+        $playerName = $entity->getName();
+        if (isset($this->maceHitInAir[$playerName]) && $this->maceHitInAir[$playerName] === true) {
+            $event->cancel();
+            unset($this->maceHitInAir[$playerName]);
         }
     }
 
@@ -90,11 +113,7 @@ class EventListener implements Listener
         }
 
         $fallDistance = $this->playerFallDistance[$playerName];
-        unset($this->playerFallDistance[$playerName]);
-
-        if ($fallDistance <= self::FALL_DISTANCE_THRESHOLD) {
-            return;
-        }
+        $wasInAir = !$player->isOnGround();
 
         $bonusDamage = $this->calculateBonusDamage($fallDistance);
 
@@ -143,6 +162,43 @@ class EventListener implements Listener
             }
         }
 
+        if ($wasInAir && $fallDistance > self::FALL_DISTANCE_THRESHOLD) {
+            $targetHealth = $target->getHealth();
+            $willDie = ($targetHealth - $event->getFinalDamage()) <= 0;
+
+            if ($willDie) {
+                $this->maceHitInAir[$playerName] = true;
+            } else {
+                $knockback = new Vector3(
+                    $player->getMotion()->x / 2.0,
+                    0.8,
+                    $player->getMotion()->z / 2.0
+                );
+
+                $windBurstEnchant = $item->getEnchantment(StringToEnchantmentParser::getInstance()->parse("wind_burst"));
+                if ($windBurstEnchant !== null) {
+                    switch ($windBurstEnchant->getLevel()) {
+                        case 1:
+                            $knockback->y = 1.2;
+                            break;
+                        case 2:
+                            $knockback->y = 2.0;
+                            break;
+                        case 3:
+                            $knockback->y = 3.1;
+                            break;
+                    }
+                } else {
+                    $knockback->y = 1.0;
+                }
+
+                $player->setMotion($knockback);
+                unset($this->playerFallDistance[$playerName]);
+            }
+        } else {
+            unset($this->playerFallDistance[$playerName]);
+        }
+
         $targetPos = $event->getEntity()->getPosition();
         $world = $player->getWorld();
 
@@ -158,34 +214,10 @@ class EventListener implements Listener
         }
 
         $this->knockbackNearbyEntities($world, $player, $event->getEntity(), $fallDistance);
-
-        $knockback = new Vector3(
-            $player->getMotion()->x / 2.0,
-            0.01,
-            $player->getMotion()->z / 2.0
-        );
-
-        $windBurstEnchant = $item->getEnchantment(StringToEnchantmentParser::getInstance()->parse("wind_burst"));
-        if ($windBurstEnchant !== null) {
-            switch ($windBurstEnchant->getLevel()) {
-                case 1:
-                    $knockback->y = 1.2;
-                    break;
-                case 2:
-                    $knockback->y = 2.0;
-                    break;
-                case 3:
-                    $knockback->y = 3.1;
-                    break;
-            }
-        }
-
-        $player->setMotion($knockback);
     }
 
     private function calculateBonusDamage(float $fallDistance): float
     {
-
         if ($fallDistance <= 3.0) {
             return 4.0 * $fallDistance;
         } elseif ($fallDistance <= 8.0) {
