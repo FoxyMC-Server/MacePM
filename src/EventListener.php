@@ -195,7 +195,7 @@ class EventListener implements Listener
         }
     }
 
-    private function knockbackNearbyEntities(\pocketmine\world\World $world, Player $player, \pocketmine\entity\Entity $attacked, float $fallDistance): void
+    private function knockbackNearbyEntities(\pocketmine\world\World $world, Player $player, \pocketmine\entity\Living $attacked, float $fallDistance): void
     {
         $targetPos = $attacked->getPosition();
         $range = self::KNOCKBACK_RANGE;
