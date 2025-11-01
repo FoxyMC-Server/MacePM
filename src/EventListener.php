@@ -161,7 +161,7 @@ class EventListener implements Listener
 
         $knockback = new Vector3(
             $player->getMotion()->x / 2.0,
-            0.01
+            0.01,
             $player->getMotion()->z / 2.0
         );
 
