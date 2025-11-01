@@ -46,6 +46,7 @@ class EventListener implements Listener
     private const KNOCKBACK_POWER = 0.7;
     private const FALL_DISTANCE_THRESHOLD = 1.5;
     private const HEAVY_SMASH_THRESHOLD = 5.0;
+    private const BASE_DAMAGE = 6.0;
 
     private array $playerFallDistance = [];
     private array $playerFallStartHeight = [];
@@ -118,13 +119,13 @@ class EventListener implements Listener
         }
 
         $playerName = $player->getName();
-        
         $wasInAir = !$player->isOnGround();
         $fallDistance = $this->playerFallDistance[$playerName] ?? 0;
 
         $isSmashAttack = $wasInAir && $fallDistance >= self::FALL_DISTANCE_THRESHOLD;
 
         if (!$isSmashAttack) {
+            $event->setBaseDamage(self::BASE_DAMAGE);
             return;
         }
 
@@ -137,11 +138,9 @@ class EventListener implements Listener
             $bonusDamage += $densityBonus;
         }
 
-        $baseDamage = 6.0;
-        $totalDamage = $baseDamage + $bonusDamage;
+        $totalDamage = self::BASE_DAMAGE + $bonusDamage;
         
-        $isCritical = true;
-        if ($isCritical) {
+        if ($wasInAir) {
             $totalDamage *= 1.5;
         }
 
@@ -228,6 +227,7 @@ class EventListener implements Listener
 
     private function calculateBonusDamage(float $fallDistance): float
     {
+
         if ($fallDistance <= 3.0) {
             return 4.0 * $fallDistance;
         } elseif ($fallDistance <= 8.0) {
